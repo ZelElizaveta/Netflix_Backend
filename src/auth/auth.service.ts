@@ -11,6 +11,7 @@ import { ModelType } from '@typegoose/typegoose/lib/types'
 
 import { UserModel } from 'src/user/user.model'
 import { AuthDto } from './dto/auth.dto'
+import { refreshTokenDto } from './dto/refreshToken.dto'
 
 @Injectable()
 export class AuthService {
@@ -22,6 +23,25 @@ export class AuthService {
 	async login(dto: AuthDto) {
 		const user = await this.validateUser(dto)
 		const tokens = await this.issueTokenPair(String(user._id))
+		return {
+			user: this.returnUserFields(user),
+			...tokens,
+		}
+	}
+
+	async getNewTokens({ refreshToken }: refreshTokenDto) {
+		if (!refreshToken) {
+			throw new UnauthorizedException('Please sign in')
+		}
+		const result = await this.jwtService.verifyAsync(refreshToken)
+
+		if (!result) {
+			throw new UnauthorizedException('Invalid token or expired')
+		}
+
+		const user = await this.UserModel.findById(result._id)
+		const tokens = await this.issueTokenPair(String(user._id))
+
 		return {
 			user: this.returnUserFields(user),
 			...tokens,
